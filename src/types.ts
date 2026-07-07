@@ -6,6 +6,8 @@ export type SketchStyle = 'spiky' | 'dotted' | 'cloud' | 'cross' | 'smooth'
 
 export type VegSymbol =
   | 'carrot' | 'leek' | 'kale' | 'chard' | 'courgette' | 'beetroot' | 'pea' | 'bean'
+  | 'squash' | 'radish' | 'garlic' | 'potato' | 'broccoli' | 'psb' | 'artichoke'
+  | 'rhubarb' | 'onion' | 'leaf' | 'strawberry' | 'berry'
 
 export interface StageRule {
   /** inclusive week range this label applies to; ranges may wrap (from > to) */

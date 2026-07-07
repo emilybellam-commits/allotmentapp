@@ -96,7 +96,9 @@ export interface JournalEntry {
   date: string // ISO yyyy-mm-dd
   text: string
   photoId?: string
+  /** legacy single tag — superseded by plantIds but still honoured on read */
   plantId?: string
+  plantIds?: string[]
   pinId?: string
   updatedAt: number
   deleted?: boolean
@@ -122,6 +124,8 @@ export interface Settings {
 export interface WeatherReading {
   tempC: number
   code: number
+  windMph?: number
+  windDeg?: number
   fetchedAt: number
 }
 

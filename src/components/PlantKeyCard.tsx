@@ -1,16 +1,16 @@
-import { FLOWER_NUMBERS, FLOWER_ORDER, VEG_ORDER } from '../data/catalogue'
+import { FLOWER_NUMBERS } from '../data/catalogue'
 import { useStore } from '../store/store'
+import { plantGroups } from '../util/plantGroups'
+import type { Plant } from '../types'
 import { PinBlob } from './PinBlob'
 
 export function PlantKeyCard({ onPick }: { onPick?: (id: string) => void }) {
-  const { plants, plantById } = useStore()
-  const customIds = plants.filter(p => p.custom && !p.deleted).map(p => p.id)
+  const { plants } = useStore()
 
-  const row = (id: string, n: number | null) => {
-    const p = plantById(id)
-    if (!p) return null
+  const row = (p: Plant) => {
+    const n = p.cat === 'Flower' ? FLOWER_NUMBERS[p.id] ?? null : null
     return (
-      <button key={id} onClick={() => onPick?.(id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '1.5px 0', width: '100%', textAlign: 'left' }}>
+      <button key={p.id} onClick={() => onPick?.(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '1.5px 0', width: '100%', textAlign: 'left' }}>
         <span style={{ position: 'relative', width: 27, height: 27, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <PinBlob plant={p} px={27} inspector />
           {n != null && (
@@ -29,12 +29,12 @@ export function PlantKeyCard({ onPick }: { onPick?: (id: string) => void }) {
   return (
     <div>
       <div className="hand" style={{ fontSize: 21, color: 'var(--ink)', lineHeight: 1, marginBottom: 1 }}>Plant key</div>
-      {head('Flowers')}
-      {FLOWER_ORDER.map(id => row(id, FLOWER_NUMBERS[id] ?? null))}
-      {head('Vegetables')}
-      {VEG_ORDER.map(id => row(id, null))}
-      {customIds.length > 0 && head('My plants')}
-      {customIds.map(id => row(id, null))}
+      {plantGroups(plants).map(g => g.plants.length > 0 && (
+        <div key={g.key}>
+          {head(g.title)}
+          {g.plants.map(row)}
+        </div>
+      ))}
     </div>
   )
 }

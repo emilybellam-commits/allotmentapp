@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store/store'
 import type { Pin, PlotFeature } from '../types'
-import { FLOWER_NUMBERS, FLOWER_ORDER, VEG_ORDER } from '../data/catalogue'
+import { FLOWER_NUMBERS } from '../data/catalogue'
+import { plantGroups } from '../util/plantGroups'
 import { PinBlob } from './PinBlob'
 import { FeatureView, FEATURE_LABELS } from './FeatureView'
 import { PlantKeyCard } from './PlantKeyCard'
 import { CompassCard } from './CompassCard'
 import { InspectorContent } from './InspectorContent'
+import { SunPath } from './SunPath'
 
 const WORLD_W = 540
 const WORLD_H = 1348
@@ -229,6 +231,8 @@ export function MapScreen() {
             />
           ))}
 
+          <SunPath week={week} lat={store.settings.lat ?? 51.45} />
+
           {pins.map(pin => {
             const p = plantById(pin.plantId)
             if (!p) return null
@@ -390,12 +394,7 @@ function BuildSheet(props: {
     selectedPin, selectedFeature, updatePin, removePin, updateFeature, removeFeature, plantName,
   } = props
 
-  const plantOf = (id: string) => plants.find(p => p.id === id)
-  // custom plants join the standard rows by category so they're always findable
-  const customVeg = plants.filter(p => p.custom && !p.deleted && p.cat !== 'Flower').map(p => p.id)
-  const customFlowers = plants.filter(p => p.custom && !p.deleted && p.cat === 'Flower').map(p => p.id)
-  const vegIds = [...VEG_ORDER, ...customVeg]
-  const flowerIds = [...FLOWER_ORDER, ...customFlowers]
+  const groups = plantGroups(plants)
   const featureKinds = Object.keys(FEATURE_LABELS).filter(k => k !== 'boundary') as PlotFeature['kind'][]
 
   const scroller: React.CSSProperties = { display: 'flex', gap: 7, overflowX: 'auto', padding: '2px 2px 6px', margin: '0 -2px' }
@@ -442,20 +441,16 @@ function BuildSheet(props: {
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)', marginBottom: 6 }}>
             Placing: <span className="hand" style={{ fontSize: 19, color: 'var(--ink)' }}>{plantName(tool)}</span>
           </div>
-          <div className="tk" style={{ fontSize: 9, color: 'var(--text3)', marginBottom: 5 }}>Vegetables</div>
-          <div style={scroller}>
-            {vegIds.map(id => {
-              const p = plantOf(id)
-              return p && <Chip key={id} label={p.name} swatch={p.col} active={tool === id} onClick={() => setTool(id)} />
-            })}
-          </div>
-          <div className="tk" style={{ fontSize: 9, color: 'var(--text3)', margin: '6px 0 5px' }}>Flowers</div>
-          <div style={scroller}>
-            {flowerIds.map(id => {
-              const p = plantOf(id)
-              return p && <Chip key={id} label={p.name} swatch={p.col} round active={tool === id} onClick={() => setTool(id)} />
-            })}
-          </div>
+          {groups.map((g, gi) => g.plants.length > 0 && (
+            <div key={g.key}>
+              <div className="tk" style={{ fontSize: 9, color: 'var(--text3)', margin: gi === 0 ? '0 0 5px' : '6px 0 5px' }}>{g.title}</div>
+              <div style={scroller}>
+                {g.plants.map(p => (
+                  <Chip key={p.id} label={p.name} swatch={p.col} round={p.cat === 'Flower'} active={tool === p.id} onClick={() => setTool(p.id)} />
+                ))}
+              </div>
+            </div>
+          ))}
         </>
       ) : selectedFeature ? (
         <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

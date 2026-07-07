@@ -2,12 +2,13 @@ import React from 'react'
 import { useStore } from '../store/store'
 import type { Plant } from '../types'
 import { inRange, weekLabel } from '../util/weeks'
+import { byName } from '../util/plantGroups'
 import { PinBlob } from './PinBlob'
 import { TimelineBars } from './TimelineBars'
 
 export function CalendarScreen() {
   const { week, plants, pins, setDbDetailId, setTab } = useStore()
-  const live = plants.filter(p => !p.deleted)
+  const live = plants.filter(p => !p.deleted).sort(byName)
   const onMapCount = (id: string) => pins.filter(pin => pin.plantId === id).length
 
   const openPlant = (id: string) => { setDbDetailId(id); setTab('plants') }

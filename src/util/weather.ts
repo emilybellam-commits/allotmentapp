@@ -21,7 +21,16 @@ function codeToText(code: number): { icon: string; word: string } {
 export interface WeatherDisplay {
   icon: string
   text: string
+  /** e.g. "9 mph SW" — live readings only */
+  wind?: string
+  windDeg?: number
   live: boolean
+}
+
+const COMPASS_POINTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+
+export function windCompass(deg: number): string {
+  return COMPASS_POINTS[Math.round(deg / 45) % 8]
 }
 
 export function seasonalFallback(week: number): WeatherDisplay {
@@ -31,7 +40,10 @@ export function seasonalFallback(week: number): WeatherDisplay {
 
 export function readingToDisplay(r: WeatherReading): WeatherDisplay {
   const { icon, word } = codeToText(r.code)
-  return { icon, text: `${Math.round(r.tempC)}°C, ${word}`, live: true }
+  const wind = r.windMph != null && r.windDeg != null
+    ? `${Math.round(r.windMph)} mph ${windCompass(r.windDeg)}`
+    : undefined
+  return { icon, text: `${Math.round(r.tempC)}°C, ${word}`, wind, windDeg: r.windDeg, live: true }
 }
 
 export async function getCachedReading(): Promise<WeatherReading | null> {
@@ -41,11 +53,12 @@ export async function getCachedReading(): Promise<WeatherReading | null> {
 
 export async function fetchWeather(lat: number, lon: number): Promise<WeatherReading | null> {
   const cached = await getCachedReading()
-  if (cached && Date.now() - cached.fetchedAt < MAX_AGE) return cached
+  // a cached reading without wind predates the wind upgrade — refetch
+  if (cached && cached.windMph != null && Date.now() - cached.fetchedAt < MAX_AGE) return cached
   if (!navigator.onLine) return cached
   try {
     const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m&wind_speed_unit=mph`,
       { signal: AbortSignal.timeout(8000) },
     )
     if (!res.ok) return cached
@@ -53,6 +66,8 @@ export async function fetchWeather(lat: number, lon: number): Promise<WeatherRea
     const reading: WeatherReading = {
       tempC: data.current.temperature_2m,
       code: data.current.weather_code,
+      windMph: data.current.wind_speed_10m,
+      windDeg: data.current.wind_direction_10m,
       fetchedAt: Date.now(),
     }
     await db.kv.put({ key: CACHE_KEY, value: reading })

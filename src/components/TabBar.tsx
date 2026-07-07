@@ -31,6 +31,17 @@ function Icon({ tab, active }: { tab: Tab; active: boolean }) {
           <circle cx="12" cy="13" r="1" fill={stroke} stroke="none" />
         </svg>
       )
+    case 'tasks':
+      return (
+        <svg width="22" height="22" viewBox="0 0 22 22" {...common}>
+          <path d="M3.5 5.5 L5 7 L7.5 4" />
+          <path d="M10 5.5 H18.5" strokeWidth={1.1} />
+          <path d="M3.5 11.5 L5 13 L7.5 10" />
+          <path d="M10 11.5 H18.5" strokeWidth={1.1} />
+          <rect x="3.5" y="15.5" width="3.5" height="3.5" rx="1" />
+          <path d="M10 17.5 H18.5" strokeWidth={1.1} />
+        </svg>
+      )
     case 'journal':
       return (
         <svg width="22" height="22" viewBox="0 0 22 22" {...common}>
@@ -42,7 +53,7 @@ function Icon({ tab, active }: { tab: Tab; active: boolean }) {
   }
 }
 
-const LABELS: Record<Tab, string> = { map: 'Map', plants: 'Database', calendar: 'Calendar', journal: 'Journal' }
+const LABELS: Record<Tab, string> = { map: 'Map', plants: 'Database', calendar: 'Calendar', tasks: 'Tasks', journal: 'Journal' }
 
 export function TabBar() {
   const { tab, setTab } = useStore()
@@ -56,7 +67,7 @@ export function TabBar() {
         <button
           key={t}
           onClick={() => setTab(t)}
-          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '8px 12px 7px', minWidth: 64 }}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '8px 6px 7px', minWidth: 52 }}
         >
           <Icon tab={t} active={tab === t} />
           <span style={{ fontSize: 10, fontWeight: 600, color: tab === t ? 'var(--accent)' : INK_IDLE, letterSpacing: '.04em' }}>

@@ -6,6 +6,7 @@ import { TimeScrubber } from './components/TimeScrubber'
 import { MapScreen } from './components/MapScreen'
 import { DatabaseScreen } from './components/DatabaseScreen'
 import { CalendarScreen } from './components/CalendarScreen'
+import { TasksScreen } from './components/TasksScreen'
 import { JournalScreen } from './components/JournalScreen'
 import { SettingsSheet } from './components/SettingsSheet'
 import { useAutoSync } from './sync/useAutoSync'
@@ -29,6 +30,7 @@ function Shell() {
       {tab === 'map' && <MapScreen />}
       {tab === 'plants' && <DatabaseScreen />}
       {tab === 'calendar' && <CalendarScreen />}
+      {tab === 'tasks' && <TasksScreen />}
       {tab === 'journal' && <JournalScreen />}
       {(tab === 'map' || tab === 'calendar') && <TimeScrubber />}
       <TabBar />

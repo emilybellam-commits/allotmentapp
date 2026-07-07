@@ -1,12 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import type { JournalEntry, Pin, Plant, PlotFeature, Settings } from '../types'
+import type { JournalEntry, Pin, Plant, PlotFeature, Settings, TaskItem } from '../types'
 import { db, loadSettings, saveSettings, requestPersistence } from './db'
 import { SEED_PLANTS } from '../data/catalogue'
 import { defaultFeatures, defaultPins } from '../data/defaultPlot'
 import { currentWeek } from '../util/weeks'
 
 export type Mode = 'view' | 'build'
-export type Tab = 'map' | 'plants' | 'calendar' | 'journal'
+export type Tab = 'map' | 'plants' | 'calendar' | 'tasks' | 'journal'
 export type BuildLayer = 'plants' | 'features'
 
 let idCounter = 0
@@ -31,6 +31,7 @@ interface Store {
   pins: Pin[]
   features: PlotFeature[]
   journal: JournalEntry[]
+  tasks: TaskItem[]
   plants: Plant[]
   plantById: (id: string) => Plant | undefined
   settings: Settings
@@ -46,10 +47,17 @@ interface Store {
   addJournal: (entry: Omit<JournalEntry, 'id' | 'updatedAt'>, photo?: Blob) => Promise<string>
   updateJournal: (id: string, patch: Partial<JournalEntry>) => void
   removeJournal: (id: string) => void
+  addTask: (text: string) => void
+  updateTask: (id: string, patch: Partial<TaskItem>) => void
+  removeTask: (id: string) => void
+  /** flip done; ticking logs the task into that day's journal entry, unticking removes it */
+  toggleTask: (id: string) => void
+  /** rewrite sort order to match the given id sequence */
+  reorderTasks: (ids: string[]) => void
   upsertPlant: (p: Plant) => void
   updateSettings: (patch: Partial<Settings>) => void
   /** replace whole dataset (import / drive pull) */
-  replaceAll: (data: { pins: Pin[]; features: PlotFeature[]; journal: JournalEntry[]; plants: Plant[]; settings: Settings }) => void
+  replaceAll: (data: { pins: Pin[]; features: PlotFeature[]; journal: JournalEntry[]; tasks?: TaskItem[]; plants: Plant[]; settings: Settings }) => void
 }
 
 const StoreCtx = createContext<Store | null>(null)
@@ -78,6 +86,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [pins, setPins] = useState<Pin[]>([])
   const [features, setFeatures] = useState<PlotFeature[]>([])
   const [journal, setJournal] = useState<JournalEntry[]>([])
+  const [tasks, setTasks] = useState<TaskItem[]>([])
   const [customPlants, setCustomPlants] = useState<Plant[]>([])
   const [settings, setSettings] = useState<Settings>({})
   const [dataVersion, setDataVersion] = useState(0)
@@ -94,13 +103,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         await db.pins.bulkPut(defaultPins())
         await db.kv.put({ key: 'seeded', value: true })
       }
-      const [p, f, j, pl, s] = await Promise.all([
+      const [p, f, j, t, pl, s] = await Promise.all([
         db.pins.toArray(), db.features.toArray(), db.journal.toArray(),
-        db.plants.toArray(), loadSettings(),
+        db.tasks.toArray(), db.plants.toArray(), loadSettings(),
       ])
       setPins(p.filter(x => !x.deleted))
       setFeatures(f.filter(x => !x.deleted))
       setJournal(j.filter(x => !x.deleted).sort((a, b) => b.date.localeCompare(a.date)))
+      setTasks(t.filter(x => !x.deleted))
       setCustomPlants(pl.filter(x => !x.deleted))
       setSettings(s)
       if (s.persistGranted !== undefined) setPersistGranted(s.persistGranted)
@@ -241,6 +251,72 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     bump()
   }, [bump])
 
+  const addTask = useCallback((text: string) => {
+    const order = tasks.reduce((m, t) => Math.max(m, t.order), -1) + 1
+    const t: TaskItem = { id: newId(), text, order, done: false, updatedAt: Date.now() }
+    setTasks(ts => [...ts, t])
+    db.tasks.put(t); ensurePersist(); bump()
+  }, [bump, ensurePersist, tasks])
+
+  const updateTask = useCallback((id: string, patch: Partial<TaskItem>) => {
+    setTasks(ts => ts.map(t => {
+      if (t.id !== id) return t
+      const next = { ...t, ...patch, updatedAt: Date.now() }
+      // undefined in a patch means "remove the field" — strip before storing
+      for (const k of Object.keys(next) as (keyof TaskItem)[]) {
+        if (next[k] === undefined) delete next[k]
+      }
+      db.tasks.put(next)
+      return next
+    }))
+    bump()
+  }, [bump])
+
+  const removeTask = useCallback((id: string) => {
+    setTasks(ts => ts.filter(t => t.id !== id))
+    db.tasks.update(id, { deleted: true, updatedAt: Date.now() })
+    bump()
+  }, [bump])
+
+  const toggleTask = useCallback((id: string) => {
+    const task = tasks.find(t => t.id === id)
+    if (!task) return
+    const line = `✓ ${task.text}`
+    if (!task.done) {
+      const today = new Date().toISOString().slice(0, 10)
+      updateTask(id, { done: true, doneDate: today })
+      const entry = journal.find(j => j.taskLog && j.date === today)
+      if (entry) updateJournal(entry.id, { text: `${entry.text}\n${line}` })
+      else addJournal({ date: today, text: line, taskLog: true })
+    } else {
+      // untick: back to the bottom of the to-do list, and unlog it
+      const order = tasks.reduce((m, t) => Math.max(m, t.order), -1) + 1
+      updateTask(id, { done: false, doneDate: undefined, order })
+      const entry = journal.find(j => j.taskLog && j.date === task.doneDate)
+      if (entry) {
+        const lines = entry.text.split('\n')
+        const i = lines.indexOf(line)
+        if (i !== -1) {
+          lines.splice(i, 1)
+          if (lines.join('').trim()) updateJournal(entry.id, { text: lines.join('\n') })
+          else removeJournal(entry.id)
+        }
+      }
+    }
+  }, [tasks, journal, updateTask, updateJournal, addJournal, removeJournal])
+
+  const reorderTasks = useCallback((ids: string[]) => {
+    const pos = new Map(ids.map((tid, i) => [tid, i]))
+    setTasks(ts => ts.map(t => {
+      const p = pos.get(t.id)
+      if (p === undefined || p === t.order) return t
+      const next = { ...t, order: p, updatedAt: Date.now() }
+      db.tasks.put(next)
+      return next
+    }))
+    bump()
+  }, [bump])
+
   const upsertPlant = useCallback((p: Plant) => {
     const next = { ...p, updatedAt: Date.now() }
     setCustomPlants(ps => {
@@ -259,10 +335,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     bump()
   }, [bump])
 
-  const replaceAll = useCallback((data: { pins: Pin[]; features: PlotFeature[]; journal: JournalEntry[]; plants: Plant[]; settings: Settings }) => {
+  const replaceAll = useCallback((data: { pins: Pin[]; features: PlotFeature[]; journal: JournalEntry[]; tasks?: TaskItem[]; plants: Plant[]; settings: Settings }) => {
     setPins(data.pins.filter(x => !x.deleted))
     setFeatures(data.features.filter(x => !x.deleted))
     setJournal(data.journal.filter(x => !x.deleted).sort((a, b) => b.date.localeCompare(a.date)))
+    setTasks((data.tasks ?? []).filter(x => !x.deleted))
     setCustomPlants(data.plants.filter(x => !x.deleted))
     setSettings(data.settings)
     bump()
@@ -277,9 +354,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     selectedPlantId, setSelectedPlantId, selectedPinId, setSelectedPinId,
     selectedFeatureId, setSelectedFeatureId, sheetOpen, setSheetOpen,
     settingsOpen, setSettingsOpen, dbDetailId, setDbDetailId,
-    pins, features, journal, plants, plantById, settings, dataVersion, persistGranted,
+    pins, features, journal, tasks, plants, plantById, settings, dataVersion, persistGranted,
     addPin, updatePin, removePin, addFeature, updateFeature, removeFeature,
-    addJournal, updateJournal, removeJournal, upsertPlant, updateSettings, replaceAll,
+    addJournal, updateJournal, removeJournal,
+    addTask, updateTask, removeTask, toggleTask, reorderTasks,
+    upsertPlant, updateSettings, replaceAll,
   }
 
   return <StoreCtx.Provider value={store}>{children}</StoreCtx.Provider>

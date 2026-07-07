@@ -9,10 +9,10 @@ import { db, loadSettings } from '../store/db'
 const kicker: React.CSSProperties = { fontSize: 10, color: 'var(--text3)', margin: '18px 0 8px' }
 
 async function reloadFromDb(replaceAll: ReturnType<typeof useStore>['replaceAll']) {
-  const [pins, features, journal, plants, settings] = await Promise.all([
-    db.pins.toArray(), db.features.toArray(), db.journal.toArray(), db.plants.toArray(), loadSettings(),
+  const [pins, features, journal, tasks, plants, settings] = await Promise.all([
+    db.pins.toArray(), db.features.toArray(), db.journal.toArray(), db.tasks.toArray(), db.plants.toArray(), loadSettings(),
   ])
-  replaceAll({ pins, features, journal, plants, settings })
+  replaceAll({ pins, features, journal, tasks, plants, settings })
 }
 
 export function SettingsSheet() {

@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { JournalEntry, PhotoRecord, Pin, Plant, PlotFeature, Settings } from '../types'
+import type { JournalEntry, PhotoRecord, Pin, Plant, PlotFeature, Settings, TaskItem } from '../types'
 
 class Plot47DB extends Dexie {
   pins!: Table<Pin, string>
@@ -7,6 +7,7 @@ class Plot47DB extends Dexie {
   journal!: Table<JournalEntry, string>
   plants!: Table<Plant, string> // custom plants + edits of seed plants
   photos!: Table<PhotoRecord, string>
+  tasks!: Table<TaskItem, string>
   kv!: Table<{ key: string; value: unknown }, string>
 
   constructor() {
@@ -18,6 +19,9 @@ class Plot47DB extends Dexie {
       plants: 'id',
       photos: 'id',
       kv: 'key',
+    })
+    this.version(2).stores({
+      tasks: 'id, order',
     })
   }
 }

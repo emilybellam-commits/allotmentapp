@@ -60,7 +60,7 @@ Authoritative source: `src/types.ts` (`Plant`) and `src/data/catalogue.ts`
 | `cat` | string | `"Vegetable"`, `"Flower"`, `"Fruit bush"`, or `"Herb"`. |
 | `col` | string | Pin colour, hex. Match the muted catalogue palette — desaturated, earthy (`#8aa85a`, `#cf5a72`), never neon. |
 | `size` | number | Default pin diameter in world px, 26–62 in the seed data. Match the plant's real footprint (carrot 34, courgette 62). |
-| `veg` | string? | Pictogram for vegetables, one of: `carrot`, `leek`, `kale`, `chard`, `courgette`, `beetroot`, `pea`, `bean`. Pick the closest match for new veg (parsnip → `carrot`). Omit for flowers. |
+| `veg` | string? | Pictogram drawn in the pin, one of: `carrot`, `leek`, `kale`, `chard`, `courgette`, `beetroot`, `pea`, `bean`, `squash`, `radish`, `garlic`, `potato` (also good for other tubers — it tints to `col`), `broccoli`, `psb` (purple sprouting), `artichoke`, `rhubarb`, `onion` (spring onion/shallot), `leaf` (generic leafy rosette, tints to `col` — good for salads, spinach, mustards, sorrel), `strawberry`, `berry` (cluster, tints to `col` — raspberry, blackberry, currants). Works on any non-flower category (Vegetable, Herb, Fruit bush). Pick the closest match. Omit for flowers. |
 | `sketch` | string? | Edge decoration for flowers, one of: `spiky`, `dotted`, `cloud`, `cross`, `smooth`. Omit for vegetables. |
 | `perennial` | boolean? | `true` keeps the pin present all year (like lavender). Omit otherwise. |
 | `sow` | [number, number]? | Week window, 1–52 inclusive. |

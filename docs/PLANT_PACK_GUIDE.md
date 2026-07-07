@@ -75,7 +75,7 @@ Authoritative source: `src/types.ts` (`Plant`) and `src/data/catalogue.ts`
 | `enemies` | string[]? | Same rules as companions. |
 | `pests` | array? | `[{ "name": "...", "control": "..." }]` — **organic controls only**. |
 | `pruning` | string? | Pruning & training paragraph — required for flowers and fruit bushes, omit for most veg. |
-| `custom` | boolean? | **`true` for new plants** (this is what makes them appear in the database list, plant key, and build palette under "My plants"). **Omit it when overriding a seed plant**, or the plant will show up twice. |
+| `custom` | boolean? | **`true` for new plants** (this is what makes them appear in the app: "My plants" in the database list and plant key, and at the end of the Vegetables/Flowers rows in the build palette). **Omit it when overriding a seed plant**, or the plant will show up twice. |
 | `updatedAt` | number | Epoch ms, current time. |
 
 ### Stages

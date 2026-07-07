@@ -137,15 +137,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }, 600)
   }, [])
 
+  // merged catalogue: seed plants overridden/extended by user rows
+  const plants = useMemo(() => {
+    const map = new Map<string, Plant>()
+    for (const p of SEED_PLANTS) map.set(p.id, p)
+    for (const p of customPlants) map.set(p.id, p)
+    return [...map.values()]
+  }, [customPlants])
+
   // ---- mutators ----
   const addPin = useCallback((plantId: string, x: number, y: number) => {
-    const plant = SEED_PLANTS.find(p => p.id === plantId)
+    const plant = plants.find(p => p.id === plantId)
     const id = newId()
     const pin: Pin = { id, plantId, x, y, size: plant?.size ?? 40, plantedYear: new Date().getFullYear(), updatedAt: Date.now() }
     setPins(ps => [...ps, pin])
     db.pins.put(pin); ensurePersist(); bump()
     return id
-  }, [bump, ensurePersist])
+  }, [bump, ensurePersist, plants])
 
   const updatePin = useCallback((id: string, patch: Partial<Pin>) => {
     setPins(ps => ps.map(p => {
@@ -255,14 +263,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSettings(data.settings)
     bump()
   }, [bump])
-
-  // merged catalogue: seed plants overridden/extended by user rows
-  const plants = useMemo(() => {
-    const map = new Map<string, Plant>()
-    for (const p of SEED_PLANTS) map.set(p.id, p)
-    for (const p of customPlants) map.set(p.id, p)
-    return [...map.values()]
-  }, [customPlants])
 
   const plantById = useCallback((id: string) => plants.find(p => p.id === id), [plants])
 

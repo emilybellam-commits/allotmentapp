@@ -312,7 +312,7 @@ export function MapScreen() {
         >
           <div style={{ width: 46, height: 5, borderRadius: 3, background: '#dcc99c', margin: '0 auto' }} />
         </div>
-        <div style={{ flex: 1, overflowY: sheet === 'full' ? 'auto' : 'hidden', padding: '0 18px 14px', minHeight: 0 }}>
+        <div style={{ flex: 1, overflowY: build || sheet === 'full' ? 'auto' : 'hidden', padding: '0 18px 14px', minHeight: 0 }}>
           {build ? (
             <BuildSheet
               buildLayer={buildLayer} setBuildLayer={setBuildLayer}
@@ -391,7 +391,11 @@ function BuildSheet(props: {
   } = props
 
   const plantOf = (id: string) => plants.find(p => p.id === id)
-  const customPlants = plants.filter(p => p.custom)
+  // custom plants join the standard rows by category so they're always findable
+  const customVeg = plants.filter(p => p.custom && !p.deleted && p.cat !== 'Flower').map(p => p.id)
+  const customFlowers = plants.filter(p => p.custom && !p.deleted && p.cat === 'Flower').map(p => p.id)
+  const vegIds = [...VEG_ORDER, ...customVeg]
+  const flowerIds = [...FLOWER_ORDER, ...customFlowers]
   const featureKinds = Object.keys(FEATURE_LABELS).filter(k => k !== 'boundary') as PlotFeature['kind'][]
 
   const scroller: React.CSSProperties = { display: 'flex', gap: 7, overflowX: 'auto', padding: '2px 2px 6px', margin: '0 -2px' }
@@ -440,28 +444,18 @@ function BuildSheet(props: {
           </div>
           <div className="tk" style={{ fontSize: 9, color: 'var(--text3)', marginBottom: 5 }}>Vegetables</div>
           <div style={scroller}>
-            {VEG_ORDER.map(id => {
+            {vegIds.map(id => {
               const p = plantOf(id)
               return p && <Chip key={id} label={p.name} swatch={p.col} active={tool === id} onClick={() => setTool(id)} />
             })}
           </div>
           <div className="tk" style={{ fontSize: 9, color: 'var(--text3)', margin: '6px 0 5px' }}>Flowers</div>
           <div style={scroller}>
-            {FLOWER_ORDER.map(id => {
+            {flowerIds.map(id => {
               const p = plantOf(id)
               return p && <Chip key={id} label={p.name} swatch={p.col} round active={tool === id} onClick={() => setTool(id)} />
             })}
           </div>
-          {customPlants.length > 0 && (
-            <>
-              <div className="tk" style={{ fontSize: 9, color: 'var(--text3)', margin: '6px 0 5px' }}>My plants</div>
-              <div style={scroller}>
-                {customPlants.map(p => (
-                  <Chip key={p.id} label={p.name} swatch={p.col} round={p.cat === 'Flower'} active={tool === p.id} onClick={() => setTool(p.id)} />
-                ))}
-              </div>
-            </>
-          )}
         </>
       ) : selectedFeature ? (
         <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

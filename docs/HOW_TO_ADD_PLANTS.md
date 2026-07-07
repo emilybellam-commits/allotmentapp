@@ -101,8 +101,8 @@ page will simply show the new information.
 
 1. Go to the **Map** tab.
 2. Tap **Build** at the top.
-3. In the panel at the bottom, scroll the plant buttons along — your new
-   plants are there under **My plants**.
+3. In the panel at the bottom, swipe the plant buttons sideways — your new
+   plants are at the end of the **Vegetables** or **Flowers** row.
 4. Tap the plant you want, then tap the spot on the map where it's growing.
 5. Drag the pin to nudge it; pinch it (or use the size slider) to match how
    much space the real plant takes.

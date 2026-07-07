@@ -19,15 +19,15 @@ export function base64ToBlob(base64: string, type: string): Blob {
 
 /** Full data snapshot straight from IndexedDB (includes tombstones). */
 export async function buildSnapshot(): Promise<Snapshot> {
-  const [pins, features, journal, plants, settings, photos] = await Promise.all([
+  const [pins, features, journal, tasks, plants, settings, photos] = await Promise.all([
     db.pins.toArray(), db.features.toArray(), db.journal.toArray(),
-    db.plants.toArray(), loadSettings(), db.photos.toArray(),
+    db.tasks.toArray(), db.plants.toArray(), loadSettings(), db.photos.toArray(),
   ])
   const encodedPhotos = await Promise.all(photos.map(async p => ({
     id: p.id, type: p.blob.type || 'image/jpeg',
     base64: await blobToBase64(p.blob), updatedAt: p.updatedAt,
   })))
-  return { version: 1, exportedAt: Date.now(), pins, features, journal, plants, settings, photos: encodedPhotos }
+  return { version: 1, exportedAt: Date.now(), pins, features, journal, tasks, plants, settings, photos: encodedPhotos }
 }
 
 function newerWins<T extends { id: string; updatedAt?: number }>(local: T[], remote: T[]): T[] {
@@ -42,21 +42,23 @@ function newerWins<T extends { id: string; updatedAt?: number }>(local: T[], rem
 
 /** Merge a snapshot into IndexedDB, last-write-wins per record. */
 export async function mergeSnapshot(snap: Snapshot): Promise<void> {
-  const [pins, features, journal, plants, settings] = await Promise.all([
+  const [pins, features, journal, tasks, plants, settings] = await Promise.all([
     db.pins.toArray(), db.features.toArray(), db.journal.toArray(),
-    db.plants.toArray(), loadSettings(),
+    db.tasks.toArray(), db.plants.toArray(), loadSettings(),
   ])
   const mPins = newerWins(pins, snap.pins ?? [])
   const mFeatures = newerWins(features, snap.features ?? [])
   const mJournal = newerWins(journal, snap.journal ?? [])
+  const mTasks = newerWins(tasks, snap.tasks ?? [])
   const mPlants = newerWins(plants, snap.plants ?? [])
   const mSettings = (snap.settings?.updatedAt ?? 0) > (settings.updatedAt ?? 0)
     ? { ...settings, ...snap.settings } : settings
 
-  await db.transaction('rw', [db.pins, db.features, db.journal, db.plants, db.kv], async () => {
+  await db.transaction('rw', [db.pins, db.features, db.journal, db.tasks, db.plants, db.kv], async () => {
     await db.pins.bulkPut(mPins)
     await db.features.bulkPut(mFeatures)
     await db.journal.bulkPut(mJournal)
+    await db.tasks.bulkPut(mTasks)
     await db.plants.bulkPut(mPlants)
     await db.kv.put({ key: 'settings', value: mSettings })
     await db.kv.put({ key: 'seeded', value: true })

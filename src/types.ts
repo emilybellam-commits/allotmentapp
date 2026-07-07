@@ -100,6 +100,20 @@ export interface JournalEntry {
   plantId?: string
   plantIds?: string[]
   pinId?: string
+  /** auto-kept entry collecting the day's ticked-off tasks */
+  taskLog?: boolean
+  updatedAt: number
+  deleted?: boolean
+}
+
+export interface TaskItem {
+  id: string
+  text: string
+  /** sort position in the to-do list, ascending */
+  order: number
+  done: boolean
+  /** ISO yyyy-mm-dd of the day it was ticked off */
+  doneDate?: string
   updatedAt: number
   deleted?: boolean
 }
@@ -136,6 +150,8 @@ export interface Snapshot {
   features: PlotFeature[]
   journal: JournalEntry[]
   plants: Plant[] // custom / edited plants only
+  /** absent in backups made before the task list existed */
+  tasks?: TaskItem[]
   settings: Settings
   photos: { id: string; type: string; base64: string; updatedAt: number }[]
 }

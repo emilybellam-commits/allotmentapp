@@ -28,8 +28,9 @@ export function TopBar() {
             <span style={{ color: 'var(--text3)', display: 'block', fontSize: 9.5, lineHeight: 1.15, whiteSpace: 'nowrap' }}>{weather.text}</span>
             {weather.wind && (
               <span style={{ color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 3, fontSize: 9.5, lineHeight: 1.15, whiteSpace: 'nowrap' }}>
-                {/* arrow points the way the wind is blowing (met. direction + 180°) */}
-                <svg width="9" height="9" viewBox="0 0 10 10" style={{ transform: `rotate(${(weather.windDeg ?? 0) + 180}deg)`, flex: 'none' }}>
+                {/* arrow points the way the wind is blowing (met. direction + 180°),
+                    rotated into the plot map's frame — map-up is NW (315°) */}
+                <svg width="9" height="9" viewBox="0 0 10 10" style={{ transform: `rotate(${(weather.windDeg ?? 0) + 180 - 315}deg)`, flex: 'none' }}>
                   <path d="M5 1 L5 9 M5 1 L2.4 4 M5 1 L7.6 4" stroke="#6f8fae" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 {weather.wind}

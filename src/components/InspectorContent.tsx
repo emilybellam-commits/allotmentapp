@@ -3,12 +3,13 @@ import type { Plant } from '../types'
 import { stageAt, weekLabelShort } from '../util/weeks'
 import { PinBlob } from './PinBlob'
 import { TimelineBars } from './TimelineBars'
+import { journalCountFor } from '../util/journalTags'
 
 /** View-mode inspector body: used in the map bottom sheet. */
 export function InspectorContent({ plant: p, compact }: { plant: Plant; compact: boolean }) {
   const { week, pins, journal, setTab, setDbDetailId } = useStore()
   const onMap = pins.filter(pin => pin.plantId === p.id).length
-  const notes = journal.filter(j => j.plantId === p.id).length
+  const notes = journalCountFor(journal, p.id)
 
   return (
     <div>

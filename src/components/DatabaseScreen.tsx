@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
 import { useStore, newId } from '../store/store'
 import type { Plant, PlantCategory, WeekRange } from '../types'
-import { FLOWER_ORDER, VEG_ORDER } from '../data/catalogue'
 import { PinBlob } from './PinBlob'
 import { TimelineBars } from './TimelineBars'
 import { stageAt, weekLabelShort } from '../util/weeks'
+import { plantGroups } from '../util/plantGroups'
+import { journalCountFor } from '../util/journalTags'
 
 const kicker: React.CSSProperties = { fontSize: 10, color: 'var(--text3)', margin: '18px 0 6px' }
 
@@ -16,14 +17,11 @@ export function DatabaseScreen() {
   if (adding) return <AddPlantForm onDone={() => setAdding(false)} />
   if (detail) return <PlantDetail plant={detail} onBack={() => setDbDetailId(null)} />
 
-  const customPlants = plants.filter(p => p.custom)
-
-  const section = (title: string, ids: string[]) => (
+  const section = (title: string, list: typeof plants) => (
     <div key={title}>
       <div className="tk" style={{ ...kicker, margin: '14px 16px 4px' }}>{title}</div>
-      {ids.map(id => {
-        const p = plantById(id)
-        if (!p) return null
+      {list.map(p => {
+        const id = p.id
         return (
           <button
             key={id}
@@ -59,9 +57,7 @@ export function DatabaseScreen() {
           + Add plant
         </button>
       </div>
-      {section('Vegetables', VEG_ORDER)}
-      {section('Flowers', FLOWER_ORDER)}
-      {customPlants.length > 0 && section('My plants', customPlants.map(p => p.id))}
+      {plantGroups(plants).map(g => g.plants.length > 0 && section(g.title, g.plants))}
       <div style={{ height: 24 }} />
     </div>
   )
@@ -72,7 +68,7 @@ export function DatabaseScreen() {
 function PlantDetail({ plant: p, onBack }: { plant: Plant; onBack: () => void }) {
   const { week, plants, pins, journal, setDbDetailId, plantById } = useStore()
   const onMap = pins.filter(pin => pin.plantId === p.id).length
-  const notes = journal.filter(j => j.plantId === p.id).length
+  const notes = journalCountFor(journal, p.id)
 
   const linkChips = (ids: string[] | undefined, empty: string) => {
     const list = (ids ?? []).map(id => plantById(id)).filter(Boolean) as Plant[]
@@ -185,6 +181,7 @@ function AddPlantForm({ onDone }: { onDone: () => void }) {
   const [cat, setCat] = useState<PlantCategory>('Vegetable')
   const [col, setCol] = useState('#8aa85a')
   const [sketch, setSketch] = useState<Plant['sketch']>('spiky')
+  const [perennial, setPerennial] = useState(false)
   const [size, setSize] = useState(40)
   const [sowFrom, setSowFrom] = useState(14)
   const [sowTo, setSowTo] = useState(20)
@@ -206,6 +203,7 @@ function AddPlantForm({ onDone }: { onDone: () => void }) {
       size, custom: true,
       sketch: flower ? sketch : undefined,
       veg: flower ? undefined : 'bean',
+      perennial: flower && perennial ? true : undefined,
       sow, plant: plantW,
       ...(flower ? { bloom: last } : { harvest: last }),
       note: note.trim() || `${name.trim()} — added to the plot catalogue.`,
@@ -256,6 +254,12 @@ function AddPlantForm({ onDone }: { onDone: () => void }) {
             </select>
           )}
         </div>
+        {cat === 'Flower' && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--body)' }}>
+            <input type="checkbox" checked={perennial} onChange={e => setPerennial(e.target.checked)} style={{ width: 18, height: 18 }} />
+            Perennial (comes back every year — pin stays on the map all winter)
+          </label>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 12, color: 'var(--text2)' }}>Pin colour</span>
           <input type="color" value={col} onChange={e => setCol(e.target.value)} style={{ width: 44, height: 32, padding: 2, border: '1px solid var(--card-border)', borderRadius: 6, background: 'var(--map)' }} />

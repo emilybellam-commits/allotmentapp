@@ -225,6 +225,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setJournal(js => js.map(j => {
       if (j.id !== id) return j
       const next = { ...j, ...patch, updatedAt: Date.now() }
+      // undefined in a patch means "remove the field" — strip before storing
+      for (const k of Object.keys(next) as (keyof JournalEntry)[]) {
+        if (next[k] === undefined) delete next[k]
+      }
       db.journal.put(next)
       return next
     }))

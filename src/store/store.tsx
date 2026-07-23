@@ -4,6 +4,7 @@ import { db, loadSettings, saveSettings, requestPersistence } from './db'
 import { SEED_PLANTS } from '../data/catalogue'
 import { defaultFeatures, defaultPins } from '../data/defaultPlot'
 import { currentWeek } from '../util/weeks'
+import { currentWeatherLine } from '../util/weather'
 
 export type Mode = 'view' | 'build'
 export type Tab = 'map' | 'plants' | 'calendar' | 'tasks' | 'journal'
@@ -111,7 +112,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setFeatures(f.filter(x => !x.deleted))
       setJournal(j.filter(x => !x.deleted).sort((a, b) => b.date.localeCompare(a.date)))
       setTasks(t.filter(x => !x.deleted))
-      setCustomPlants(pl.filter(x => !x.deleted))
+      const livePlants = pl.filter(x => !x.deleted)
+      setCustomPlants(livePlants)
+      // default inspector plant: the blackberry lives in the user's custom
+      // catalogue, so find it by name rather than id
+      const all = [...SEED_PLANTS, ...livePlants]
+      const blackberry = all.find(x => /thornless/i.test(x.name) && /blackberry/i.test(x.name))
+        ?? all.find(x => /blackberry/i.test(x.name))
+      if (blackberry) setSelectedPlantId(blackberry.id)
       setSettings(s)
       if (s.persistGranted !== undefined) setPersistGranted(s.persistGranted)
       if (s.lastWeek) setWeekState(s.lastWeek)
@@ -228,8 +236,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const j: JournalEntry = { ...entry, id, photoId, updatedAt: Date.now() }
     setJournal(js => [j, ...js].sort((a, b) => b.date.localeCompare(a.date)))
     db.journal.put(j); ensurePersist(); bump()
+    // entries written for today get stamped with the current weather once it
+    // arrives — non-blocking so saving never waits on the network
+    if (!j.weather && j.date === new Date().toISOString().slice(0, 10)) {
+      currentWeatherLine(settings.lat, settings.lon).then(w => {
+        if (!w) return
+        setJournal(js => js.map(x => {
+          if (x.id !== id) return x
+          const next = { ...x, weather: w, updatedAt: Date.now() }
+          db.journal.put(next)
+          return next
+        }))
+        bump()
+      })
+    }
     return id
-  }, [bump, ensurePersist])
+  }, [bump, ensurePersist, settings.lat, settings.lon])
 
   const updateJournal = useCallback((id: string, patch: Partial<JournalEntry>) => {
     setJournal(js => js.map(j => {

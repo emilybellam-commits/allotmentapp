@@ -77,6 +77,17 @@ export async function fetchWeather(lat: number, lon: number): Promise<WeatherRea
   }
 }
 
+/** Short line for stamping journal entries, e.g. "🌤 21°C, bright, 9 mph SW wind".
+ *  Undefined when there's no location set and no reasonably fresh cached reading. */
+export async function currentWeatherLine(lat?: number, lon?: number): Promise<string | undefined> {
+  const r = lat != null && lon != null
+    ? await fetchWeather(lat, lon)
+    : await getCachedReading()
+  if (!r || Date.now() - r.fetchedAt > 3 * 60 * 60 * 1000) return undefined
+  const d = readingToDisplay(r)
+  return `${d.icon} ${d.text}${d.wind ? `, ${d.wind} wind` : ''}`
+}
+
 export interface GeoResult { name: string; lat: number; lon: number; detail: string }
 
 export async function geocode(query: string): Promise<GeoResult[]> {

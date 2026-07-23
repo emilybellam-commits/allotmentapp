@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useStore } from '../store/store'
 import type { Pin, PlotFeature } from '../types'
 import { FLOWER_NUMBERS } from '../data/catalogue'
@@ -26,7 +26,9 @@ export function MapScreen() {
   } = store
 
   const worldRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [worldW, setWorldW] = useState(360)
+  const [containerW, setContainerW] = useState(360)
   const [showKey, setShowKey] = useState(false)
   const [showCompass, setShowCompass] = useState(false)
   const [sheet, setSheet] = useState<SheetPos>('peek')
@@ -40,8 +42,89 @@ export function MapScreen() {
     return () => ro.disconnect()
   }, [])
 
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setContainerW(el.clientWidth))
+    ro.observe(el)
+    setContainerW(el.clientWidth)
+    return () => ro.disconnect()
+  }, [])
+
   const scale = worldW / WORLD_W
   const build = mode === 'build'
+
+  // ---- pinch-to-zoom on the whole map surface ----
+  const [zoom, setZoom] = useState(1)
+  const zoomRef = useRef(1)
+  // scroll correction to keep the pinch midpoint stationary, applied after
+  // the world re-renders at its new width
+  const pendingScroll = useRef<{ l: number; t: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    const p = pendingScroll.current
+    if (el && p) {
+      el.scrollLeft = p.l
+      el.scrollTop = p.t
+      pendingScroll.current = null
+    }
+  }, [zoom])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const applyZoom = (z: number, midX: number, midY: number, fromZoom: number, scrollL: number, scrollT: number) => {
+      const clamped = Math.max(1, Math.min(4, z))
+      const k = clamped / fromZoom
+      pendingScroll.current = { l: (scrollL + midX) * k - midX, t: (scrollT + midY) * k - midY }
+      zoomRef.current = clamped
+      setZoom(clamped)
+    }
+    const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
+    let startDist = 0, startZoom = 1, startL = 0, startT = 0, midX = 0, midY = 0, active = false
+    const onStart = (e: TouchEvent) => {
+      // two fingers on a pin is the pin-resize gesture — leave it alone
+      if (e.touches.length !== 2 || gesture.current) return
+      e.preventDefault()
+      active = true
+      startDist = dist(e.touches)
+      startZoom = zoomRef.current
+      const r = el.getBoundingClientRect()
+      midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left
+      midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top
+      startL = el.scrollLeft
+      startT = el.scrollTop
+    }
+    const onMove = (e: TouchEvent) => {
+      if (!active || e.touches.length !== 2) return
+      e.preventDefault()
+      applyZoom(startZoom * (dist(e.touches) / startDist), midX, midY, startZoom, startL, startT)
+    }
+    const onEnd = (e: TouchEvent) => { if (e.touches.length < 2) active = false }
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return // trackpad pinch / ctrl+scroll on desktop
+      e.preventDefault()
+      const r = el.getBoundingClientRect()
+      applyZoom(
+        zoomRef.current * Math.exp(-e.deltaY / 300),
+        e.clientX - r.left, e.clientY - r.top,
+        zoomRef.current, el.scrollLeft, el.scrollTop,
+      )
+    }
+    el.addEventListener('touchstart', onStart, { passive: false })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd)
+    el.addEventListener('touchcancel', onEnd)
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+      el.removeEventListener('wheel', onWheel)
+    }
+  }, [])
 
   // ---- drag / pinch / tap state ----
   const gesture = useRef<{
@@ -199,8 +282,9 @@ export function MapScreen() {
     <div style={{ flex: 1, position: 'relative', minHeight: 0, overflow: 'hidden' }}>
       {/* scrolling map surface */}
       <div
+        ref={scrollRef}
         style={{
-          position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden',
+          position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'auto',
           background: 'var(--map)',
           backgroundImage: 'radial-gradient(rgba(120,110,80,.05) 1px, transparent 1px)',
           backgroundSize: '7px 7px',
@@ -215,7 +299,7 @@ export function MapScreen() {
           onPointerCancel={onWorldPointerUp}
           style={{
             position: 'relative',
-            width: 'min(100% - 20px, 540px)',
+            width: Math.max(200, Math.min(containerW - 20, 540)) * zoom,
             aspectRatio: `${WORLD_W} / ${WORLD_H}`,
             margin: '14px auto',
             marginBottom: 190,
@@ -293,6 +377,16 @@ export function MapScreen() {
         <button className={'paper-btn' + (showCompass ? ' active' : '')} onClick={() => setShowCompass(c => !c)} style={{ padding: '0 12px' }}>
           <span className="hand" style={{ fontSize: 16 }}>compass</span>
         </button>
+        {zoom > 1.02 && (
+          <button
+            className="paper-btn fade-in"
+            onClick={() => { zoomRef.current = 1; setZoom(1) }}
+            aria-label="Reset zoom"
+            style={{ padding: '0 12px' }}
+          >
+            <span className="hand" style={{ fontSize: 16 }}>{zoom.toFixed(1).replace(/\.0$/, '')}× · reset</span>
+          </button>
+        )}
         {showCompass && (
           <div className="card fade-in" style={{ width: 168, padding: '11px 12px 9px' }}>
             <CompassCard week={week} />

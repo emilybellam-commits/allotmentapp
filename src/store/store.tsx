@@ -45,7 +45,7 @@ interface Store {
   addFeature: (kind: PlotFeature['kind'], x: number, y: number) => string
   updateFeature: (id: string, patch: Partial<PlotFeature>) => void
   removeFeature: (id: string) => void
-  addJournal: (entry: Omit<JournalEntry, 'id' | 'updatedAt'>, photo?: Blob) => Promise<string>
+  addJournal: (entry: Omit<JournalEntry, 'id' | 'updatedAt'>, photos?: Blob[]) => Promise<string>
   updateJournal: (id: string, patch: Partial<JournalEntry>) => void
   removeJournal: (id: string) => void
   addTask: (text: string) => void
@@ -226,14 +226,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     bump()
   }, [bump])
 
-  const addJournal = useCallback(async (entry: Omit<JournalEntry, 'id' | 'updatedAt'>, photo?: Blob) => {
+  const addJournal = useCallback(async (entry: Omit<JournalEntry, 'id' | 'updatedAt'>, photos?: Blob[]) => {
     const id = newId()
-    let photoId: string | undefined
-    if (photo) {
-      photoId = newId()
-      await db.photos.put({ id: photoId, blob: photo, updatedAt: Date.now() })
+    let photoIds: string[] | undefined
+    if (photos && photos.length) {
+      photoIds = []
+      for (const blob of photos) {
+        const pid = newId()
+        await db.photos.put({ id: pid, blob, updatedAt: Date.now() })
+        photoIds.push(pid)
+      }
     }
-    const j: JournalEntry = { ...entry, id, photoId, updatedAt: Date.now() }
+    const j: JournalEntry = { ...entry, id, ...(photoIds ? { photoIds } : {}), updatedAt: Date.now() }
     setJournal(js => [j, ...js].sort((a, b) => b.date.localeCompare(a.date)))
     db.journal.put(j); ensurePersist(); bump()
     // entries written for today get stamped with the current weather once it

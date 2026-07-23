@@ -95,7 +95,9 @@ export interface JournalEntry {
   id: string
   date: string // ISO yyyy-mm-dd
   text: string
+  /** legacy single photo — superseded by photoIds but still honoured on read */
   photoId?: string
+  photoIds?: string[]
   /** legacy single tag — superseded by plantIds but still honoured on read */
   plantId?: string
   plantIds?: string[]

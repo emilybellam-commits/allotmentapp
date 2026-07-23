@@ -4,9 +4,9 @@ import { db } from '../store/db'
 import type { JournalEntry } from '../types'
 import { PinBlob } from './PinBlob'
 import { plantGroups } from '../util/plantGroups'
-import { journalPlantIds } from '../util/journalTags'
+import { journalPlantIds, journalPhotoIds } from '../util/journalTags'
 
-function PhotoThumb({ photoId }: { photoId: string }) {
+function usePhotoUrl(photoId: string): string | null {
   const [url, setUrl] = useState<string | null>(null)
   useEffect(() => {
     let obj: string | null = null
@@ -15,14 +15,61 @@ function PhotoThumb({ photoId }: { photoId: string }) {
     })
     return () => { if (obj) URL.revokeObjectURL(obj) }
   }, [photoId])
+  return url
+}
+
+function PhotoThumb({ photoId, cover }: { photoId: string; cover?: boolean }) {
+  const url = usePhotoUrl(photoId)
   if (!url) return null
   return (
     <img
       src={url}
       alt=""
-      style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid var(--card-border)', marginTop: 8, display: 'block' }}
+      style={{
+        maxWidth: '100%', borderRadius: 8, border: '1px solid var(--card-border)', display: 'block',
+        ...(cover ? { width: '100%', aspectRatio: '4 / 3', objectFit: 'cover' } : {}),
+      }}
     />
   )
+}
+
+/** Small removable thumbnail in the draft editor. */
+function EditThumb({ url, onRemove }: { url: string | null; onRemove: () => void }) {
+  if (!url) return null
+  return (
+    <div style={{ position: 'relative', flex: 'none' }}>
+      <img
+        src={url}
+        alt=""
+        style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--card-border)', display: 'block' }}
+      />
+      <button
+        onClick={onRemove}
+        aria-label="Remove photo"
+        style={{
+          position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%',
+          background: 'var(--ink)', color: '#fdfbf5', fontSize: 12, lineHeight: 1,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        ×
+      </button>
+    </div>
+  )
+}
+
+function ExistingEditThumb({ photoId, onRemove }: { photoId: string; onRemove: () => void }) {
+  return <EditThumb url={usePhotoUrl(photoId)} onRemove={onRemove} />
+}
+
+function NewEditThumb({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    const obj = URL.createObjectURL(file)
+    setUrl(obj)
+    return () => URL.revokeObjectURL(obj)
+  }, [file])
+  return <EditThumb url={url} onRemove={onRemove} />
 }
 
 /** Alphabetical, grouped plant multi-picker with checkboxes. */
@@ -93,13 +140,13 @@ interface Draft {
   date: string
   text: string
   plantIds: string[]
-  existingPhotoId?: string
-  newPhoto: File | null
+  photoIds: string[] // existing photos kept on the entry
+  newPhotos: File[]
 }
 
 const emptyDraft = (): Draft => ({
   date: new Date().toISOString().slice(0, 10),
-  text: '', plantIds: [], newPhoto: null,
+  text: '', plantIds: [], photoIds: [], newPhotos: [],
 })
 
 export function JournalScreen() {
@@ -109,19 +156,21 @@ export function JournalScreen() {
   const save = async () => {
     if (!draft || !draft.text.trim()) return
     if (draft.id) {
-      let photoId = draft.existingPhotoId
-      if (draft.newPhoto) {
-        photoId = crypto.randomUUID()
-        await db.photos.put({ id: photoId, blob: draft.newPhoto, updatedAt: Date.now() })
+      const photoIds = [...draft.photoIds]
+      for (const f of draft.newPhotos) {
+        const pid = crypto.randomUUID()
+        await db.photos.put({ id: pid, blob: f, updatedAt: Date.now() })
+        photoIds.push(pid)
       }
       updateJournal(draft.id, {
         date: draft.date, text: draft.text.trim(),
-        plantIds: draft.plantIds, plantId: undefined, photoId,
+        plantIds: draft.plantIds, plantId: undefined,
+        photoIds, photoId: undefined,
       })
     } else {
       await addJournal(
         { date: draft.date, text: draft.text.trim(), plantIds: draft.plantIds },
-        draft.newPhoto ?? undefined,
+        draft.newPhotos,
       )
     }
     setDraft(null)
@@ -130,7 +179,7 @@ export function JournalScreen() {
   const startEdit = (j: JournalEntry) => {
     setDraft({
       id: j.id, date: j.date, text: j.text,
-      plantIds: journalPlantIds(j), existingPhotoId: j.photoId, newPhoto: null,
+      plantIds: journalPlantIds(j), photoIds: journalPhotoIds(j), newPhotos: [],
     })
   }
 
@@ -177,15 +226,37 @@ export function JournalScreen() {
           <div style={{ marginTop: 10 }}>
             <PlantPicker selected={draft.plantIds} onToggle={togglePlant} />
           </div>
+          {(draft.photoIds.length > 0 || draft.newPhotos.length > 0) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+              {draft.photoIds.map(pid => (
+                <ExistingEditThumb
+                  key={pid}
+                  photoId={pid}
+                  onRemove={() => setDraft(d => d && { ...d, photoIds: d.photoIds.filter(x => x !== pid) })}
+                />
+              ))}
+              {draft.newPhotos.map((f, i) => (
+                <NewEditThumb
+                  key={`${f.name}-${i}`}
+                  file={f}
+                  onRemove={() => setDraft(d => d && { ...d, newPhotos: d.newPhotos.filter((_, x) => x !== i) })}
+                />
+              ))}
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
             <label style={{
               fontSize: 12, fontWeight: 600, color: 'var(--body)', border: '1px solid var(--card-border)',
               borderRadius: 7, padding: '9px 12px', cursor: 'pointer', background: 'var(--map)',
             }}>
-              {draft.newPhoto ? '✓ new photo' : draft.existingPhotoId ? 'Replace photo' : 'Attach photo'}
+              {draft.photoIds.length + draft.newPhotos.length > 0 ? '+ Add more photos' : 'Attach photos'}
               <input
-                type="file" accept="image/*" style={{ display: 'none' }}
-                onChange={e => setDraft(d => d && { ...d, newPhoto: e.target.files?.[0] ?? null })}
+                type="file" accept="image/*" multiple style={{ display: 'none' }}
+                onChange={e => {
+                  const files = Array.from(e.target.files ?? [])
+                  if (files.length) setDraft(d => d && { ...d, newPhotos: [...d.newPhotos, ...files] })
+                  e.target.value = '' // allow re-picking the same file
+                }}
               />
             </label>
             <div style={{ flex: 1 }} />
@@ -216,6 +287,7 @@ export function JournalScreen() {
         const tagged = journalPlantIds(j)
           .map(id => plantById(id))
           .filter((p): p is NonNullable<typeof p> => !!p)
+        const photos = journalPhotoIds(j)
         return (
           <div key={j.id} style={{ padding: '14px 0', borderBottom: '1px solid var(--hairline2)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -251,7 +323,15 @@ export function JournalScreen() {
                 ))}
               </div>
             )}
-            {j.photoId && <PhotoThumb photoId={j.photoId} />}
+            {photos.length > 0 && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: photos.length > 1 ? '1fr 1fr' : '1fr',
+                gap: 8, marginTop: 8,
+              }}>
+                {photos.map(pid => <PhotoThumb key={pid} photoId={pid} cover={photos.length > 1} />)}
+              </div>
+            )}
           </div>
         )
       })}

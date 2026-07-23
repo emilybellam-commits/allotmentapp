@@ -112,7 +112,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setFeatures(f.filter(x => !x.deleted))
       setJournal(j.filter(x => !x.deleted).sort((a, b) => b.date.localeCompare(a.date)))
       setTasks(t.filter(x => !x.deleted))
-      const livePlants = pl.filter(x => !x.deleted)
+      // data fix-up: comfrey and fennel arrived in a plant pack categorised
+      // as herbs, which files them under Fruit & veg — they belong with the
+      // perennial flowers. Match by name (pack ids aren't known) and persist
+      // so the correction syncs like any other edit.
+      const livePlants = pl.filter(x => !x.deleted).map(p => {
+        if (!/comfrey|fennel/i.test(p.name)) return p
+        if (p.cat === 'Flower' && p.perennial) return p
+        const next: Plant = { ...p, cat: 'Flower', perennial: true, updatedAt: Date.now() }
+        db.plants.put(next)
+        return next
+      })
       setCustomPlants(livePlants)
       // default inspector plant: the blackberry lives in the user's custom
       // catalogue, so find it by name rather than id

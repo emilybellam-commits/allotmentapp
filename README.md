@@ -29,7 +29,12 @@ on every push to `main`:
   for the inspector bottom sheet. Build mode: place/drag/resize plant pins
   (pinch or slider) and edit the plot furniture itself (beds, pond, shed, paths…).
   The time scrubber re-renders every pin's state (ghost → sown → growing →
-  bloom/harvest) for any week of the year.
+  bloom/harvest) for any week of the year. A second, sunrise-to-sunset day
+  scrubber moves the sun along its (real, latitude-derived) arc for that week
+  and casts ground shadows from the shed, trees, bushes, cage and other
+  furniture — shadow length is height ÷ tan(sun elevation), scaled to the
+  plot's real 6 m × 20 m size, so you can see which beds sit in shade at any
+  hour of any week.
 - **Database** — 16 seeded plants (8 veg, 8 flowers) with care requirements,
   companions/enemies, pests with organic controls only, and pruning/training for
   flowers. User plants can be added.

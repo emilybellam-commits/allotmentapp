@@ -18,6 +18,8 @@ interface Store {
   // UI state
   tab: Tab; setTab: (t: Tab) => void
   week: number; setWeek: (w: number) => void
+  /** daylight fraction for the day scrubber: 0 = sunrise, 0.5 = solar noon, 1 = sunset */
+  dayT: number; setDayT: (t: number) => void
   mode: Mode; setMode: (m: Mode) => void
   buildLayer: BuildLayer; setBuildLayer: (l: BuildLayer) => void
   tool: string; setTool: (t: string) => void
@@ -73,6 +75,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
   const [tab, setTab] = useState<Tab>('map')
   const [week, setWeekState] = useState(currentWeek())
+  const [dayT, setDayT] = useState(0.5)
   const [mode, setMode] = useState<Mode>('view')
   const [buildLayer, setBuildLayer] = useState<BuildLayer>('plants')
   const [tool, setTool] = useState('dahlia')
@@ -375,7 +378,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const store: Store = {
     ready,
-    tab, setTab, week, setWeek, mode, setMode, buildLayer, setBuildLayer,
+    tab, setTab, week, setWeek, dayT, setDayT, mode, setMode, buildLayer, setBuildLayer,
     tool, setTool, featureTool, setFeatureTool,
     selectedPlantId, setSelectedPlantId, selectedPinId, setSelectedPinId,
     selectedFeatureId, setSelectedFeatureId, sheetOpen, setSheetOpen,

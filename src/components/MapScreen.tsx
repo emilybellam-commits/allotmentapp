@@ -9,6 +9,7 @@ import { PlantKeyCard } from './PlantKeyCard'
 import { CompassCard } from './CompassCard'
 import { InspectorContent } from './InspectorContent'
 import { SunPath } from './SunPath'
+import { ShadowLayer } from './ShadowLayer'
 
 const WORLD_W = 540
 const WORLD_H = 1348
@@ -315,7 +316,9 @@ export function MapScreen() {
             />
           ))}
 
-          <SunPath week={week} lat={store.settings.lat ?? 51.45} />
+          <ShadowLayer features={features} week={week} lat={store.settings.lat ?? 51.45} dayT={store.dayT} />
+
+          <SunPath week={week} lat={store.settings.lat ?? 51.45} lon={store.settings.lon} dayT={store.dayT} />
 
           {pins.map(pin => {
             const p = plantById(pin.plantId)

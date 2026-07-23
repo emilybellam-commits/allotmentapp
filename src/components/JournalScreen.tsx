@@ -220,6 +220,9 @@ export function JournalScreen() {
           <div key={j.id} style={{ padding: '14px 0', borderBottom: '1px solid var(--hairline2)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span className="hand" style={{ fontSize: 20, color: 'var(--accent)' }}>{fmtDate(j.date)}</span>
+              {j.weather && (
+                <span style={{ fontSize: 11, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{j.weather}</span>
+              )}
               {j.taskLog && (
                 <span className="tk" style={{ fontSize: 8.5, color: 'var(--text3)', border: '1px solid var(--hairline)', borderRadius: 6, padding: '2px 6px' }}>
                   task list

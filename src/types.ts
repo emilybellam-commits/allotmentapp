@@ -102,6 +102,8 @@ export interface JournalEntry {
   pinId?: string
   /** auto-kept entry collecting the day's ticked-off tasks */
   taskLog?: boolean
+  /** weather stamp captured when the entry was written, e.g. "🌤 21°C, bright" */
+  weather?: string
   updatedAt: number
   deleted?: boolean
 }
